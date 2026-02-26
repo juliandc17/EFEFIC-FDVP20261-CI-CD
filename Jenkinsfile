@@ -2,11 +2,10 @@ pipeline {
     agent any
 
     environment {
-        // ── Configuración del proyecto ──────────────────────────
-        // Estos valores son fijos y no son secretos — van en el repo
-        APP_NAME        = 'efefic-u2-api-gateway'
+        // ── Configuración del proyecto (valores fijos, no son secretos) ──
+        APP_NAME        = 'efefic-api-gateway'
         DOCKER_REGISTRY = 'docker.io'
-        K8S_NAMESPACE   = 'efefic-u2'
+        K8S_NAMESPACE   = 'efefic'
 
         // ── Secretos — definidos en Jenkins Credentials Manager ──
         // NUNCA escribir valores reales aquí
@@ -16,8 +15,7 @@ pipeline {
         //   ID: kubeconfig-efefic      → Secret file (kubeconfig del cluster)
         DOCKER_CREDENTIALS = credentials('dockerhub-credentials')
         DOCKER_HUB_USER    = credentials('dockerhub-user')
-        DOCKER_IMAGE       = "${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}"
-        KUBECONFIG_FILE    = credentials('kubeconfig-efefic-u2')
+        KUBECONFIG_FILE    = credentials('kubeconfig-efefic')
     }
 
     options {
@@ -31,7 +29,7 @@ pipeline {
         // ────────────────────────────────────────────────────────
         // STAGE 1: Clonar repositorio
         // ────────────────────────────────────────────────────────
-        stage('📥 Checkout') {
+        stage('Checkout') {
             steps {
                 echo "==> Clonando repositorio: ${APP_NAME}"
                 checkout scm
@@ -42,74 +40,50 @@ pipeline {
         // ────────────────────────────────────────────────────────
         // STAGE 2: Construir imagen Docker
         // ────────────────────────────────────────────────────────
-        stage('🐳 Build Docker Image') {
+        stage('Build Docker Image') {
             steps {
                 echo "==> Construyendo imagen Docker para ${APP_NAME}:${BUILD_NUMBER}"
-                sh """
-                    docker build \
-                        --tag ${DOCKER_IMAGE}:${BUILD_NUMBER} \
-                        --tag ${DOCKER_IMAGE}:latest \
-                        --build-arg BUILD_DATE=\$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
-                        --build-arg GIT_COMMIT=\$(git rev-parse --short HEAD) \
-                        .
-                """
-                echo "✅ Imagen construida: ${DOCKER_IMAGE}:${BUILD_NUMBER}"
+                sh "docker build --tag ${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}:${BUILD_NUMBER} ."
+                echo "==> Imagen construida correctamente"
             }
         }
 
         // ────────────────────────────────────────────────────────
         // STAGE 3: Publicar imagen en DockerHub
         // ────────────────────────────────────────────────────────
-        stage('📤 Push to DockerHub') {
+        stage('Push to DockerHub') {
             steps {
                 echo "==> Publicando imagen en DockerHub"
-                sh """
-                    echo \${DOCKER_CREDENTIALS_PSW} | \
-                        docker login ${DOCKER_REGISTRY} \
-                        -u \${DOCKER_CREDENTIALS_USR} \
-                        --password-stdin
-
-                    docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
-                    docker push ${DOCKER_IMAGE}:latest
-                """
-                echo "✅ Imagen publicada: ${DOCKER_IMAGE}:${BUILD_NUMBER}"
+                sh "echo ${DOCKER_CREDENTIALS_PSW} | docker login ${DOCKER_REGISTRY} -u ${DOCKER_CREDENTIALS_USR} --password-stdin"
+                sh "docker push ${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}:${BUILD_NUMBER}"
+                sh "docker tag ${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}:${BUILD_NUMBER} ${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}:latest"
+                sh "docker push ${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}:latest"
+                echo "==> Imagen publicada correctamente"
             }
         }
 
         // ────────────────────────────────────────────────────────
         // STAGE 4: Despliegue en Kubernetes
         // ────────────────────────────────────────────────────────
-        stage('🚀 Deploy to Kubernetes') {
+        stage('Deploy to Kubernetes') {
             steps {
                 echo "==> Desplegando en cluster Kubernetes (namespace: ${K8S_NAMESPACE})"
                 withCredentials([file(credentialsId: 'kubeconfig-efefic', variable: 'KUBECONFIG')]) {
-                            ${APP_NAME}=${DOCKER_IMAGE}:${BUILD_NUMBER} \
-                            -n ${K8S_NAMESPACE}
-
-                        kubectl rollout status deployment/${APP_NAME} \
-                            -n ${K8S_NAMESPACE} \
-                            --timeout=120s
-                    """
+                    sh "kubectl set image deployment/${APP_NAME} ${APP_NAME}=${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}:${BUILD_NUMBER} -n ${K8S_NAMESPACE}"
+                    sh "kubectl rollout status deployment/${APP_NAME} -n ${K8S_NAMESPACE} --timeout=120s"
                 }
-                echo "✅ Despliegue completado en Kubernetes"
+                echo "==> Despliegue completado en Kubernetes"
             }
         }
 
         // ────────────────────────────────────────────────────────
         // STAGE 5: Verificación post-despliegue (Smoke Test)
         // ────────────────────────────────────────────────────────
-        stage('🔎 Smoke Test') {
+        stage('Smoke Test') {
             steps {
                 echo "==> Ejecutando prueba de humo post-despliegue"
                 withCredentials([file(credentialsId: 'kubeconfig-efefic', variable: 'KUBECONFIG')]) {
-                    sh """
-                        GATEWAY_URL=\$(kubectl get svc ${APP_NAME} \
-                            -n ${K8S_NAMESPACE} \
-                            -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-
-                        curl -sf http://\${GATEWAY_URL}/health | grep '"status":"healthy"'
-                        echo "✅ Smoke test exitoso"
-                    """
+                    sh 'GATEWAY_URL=$(kubectl get svc efefic-api-gateway -n efefic -o jsonpath=\'{.status.loadBalancer.ingress[0].ip}\') && curl -sf http://${GATEWAY_URL}/health | grep "healthy" && echo "==> Smoke test exitoso"'
                 }
             }
         }
@@ -117,15 +91,14 @@ pipeline {
 
     post {
         success {
-            echo "🎉 Pipeline CD completado exitosamente — Build #${BUILD_NUMBER}"
+            echo "==> Pipeline CD completado exitosamente - Build #${BUILD_NUMBER}"
         }
         failure {
-            echo "❌ Pipeline CD falló en Build #${BUILD_NUMBER} — revisar logs"
+            echo "==> Pipeline CD fallo en Build #${BUILD_NUMBER} - revisar logs"
         }
         always {
-            // Limpiar imágenes locales para ahorrar espacio en el agente
-            sh "docker rmi ${DOCKER_IMAGE}:${BUILD_NUMBER} || true"
-            sh "docker rmi ${DOCKER_IMAGE}:latest || true"
+            sh "docker rmi ${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}:${BUILD_NUMBER} || true"
+            sh "docker rmi ${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}:latest || true"
         }
     }
 }
