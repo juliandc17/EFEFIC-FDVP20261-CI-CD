@@ -1,8 +1,9 @@
-from fastapi import FastAPI, Request, HTTPException
+import os
+
+import httpx
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import httpx
-import os
 
 app = FastAPI(
     title="Broadcmo API Gateway",
