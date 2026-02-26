@@ -38,7 +38,7 @@ Developer → Push/PR → GitHub
 ## 🗂️ Estructura del Proyecto
 
 ```
-broadcmo-api-gateway/
+EFEFIC-FDVP20261-CI-CD/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml              # Pipeline CI - GitHub Actions

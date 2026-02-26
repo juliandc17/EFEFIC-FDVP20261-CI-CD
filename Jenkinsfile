@@ -82,22 +82,40 @@ pipeline {
         // STAGE 5: Verificación post-despliegue (Smoke Test)
         // ────────────────────────────────────────────────────────
         stage('Smoke Test') {
-            steps {
-                echo "==> Ejecutando prueba de humo"
-                withCredentials([file(credentialsId: 'kubeconfig-efefic-u2', variable: 'KUBECONFIG')]) {
-                    sh """
-                        # Corregimos el nombre del servicio y el namespace
-                        GATEWAY_URL=\$(kubectl get svc ${APP_NAME} -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-                        
-                        echo "Esperando IP del LoadBalancer..."
-                        sleep 10
-                        
-                        echo "Probando: http://\$GATEWAY_URL/health"
-                        curl -sf http://\$GATEWAY_URL/health | grep "healthy"
-                    """
-                }
-            }
+    steps {
+        echo "==> Ejecutando prueba de humo en entorno local"
+        withCredentials([file(credentialsId: 'kubeconfig-efefic-u2', variable: 'KUBECONFIG')]) {
+            sh """
+                # Intentamos obtener la IP, si falla usamos localhost
+                GATEWAY_URL=\$(kubectl get svc ${APP_NAME} -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+                
+                if [ -z "\$GATEWAY_URL" ]; then
+                    echo "Info: No se detectó IP externa (Normal en Docker Desktop). Usando localhost."
+                    GATEWAY_URL="localhost"
+                fi
+
+                echo "Probando conexión a: http://\$GATEWAY_URL/health"
+                
+                # Reintentos (Damos 15 segundos para que la app responda)
+                SUCCESS=0
+                for i in {1..3}; do
+                    if curl -sf http://\$GATEWAY_URL/health | grep "healthy"; then
+                        echo "==> Smoke test exitoso!"
+                        SUCCESS=1
+                        break
+                    fi
+                    echo "Intento \$i fallido, reintentando en 5s..."
+                    sleep 5
+                done
+
+                if [ \$SUCCESS -eq 0 ]; then
+                    echo "ERROR: La aplicación no respondió 'healthy' en http://\$GATEWAY_URL/health"
+                    exit 1
+                fi
+            """
         }
+    }
+}
     }
 
     post {
