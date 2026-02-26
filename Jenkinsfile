@@ -62,14 +62,18 @@ pipeline {
         // ────────────────────────────────────────────────────────
         // STAGE 4: Despliegue en Kubernetes
         // ────────────────────────────────────────────────────────
-        stage('Deploy to Kubernetes') {
+       stage('Deploy to Kubernetes') {
             steps {
-                echo "==> Desplegando en cluster Kubernetes (namespace: ${K8S_NAMESPACE})"
-                withCredentials([file(credentialsId: 'kubeconfig-efefic', variable: 'KUBECONFIG')]) {
+                echo "==> Aplicando configuración y actualizando imagen en ${K8S_NAMESPACE}"
+                withCredentials([file(credentialsId: 'kubeconfig-efefic-u2', variable: 'KUBECONFIG')]) {
+                    // 1. Esto crea el Deployment y el Service si no existen
+                    sh "kubectl apply -f deployment.yaml -n ${K8S_NAMESPACE}"
+                    
+                    // 2. Esto fuerza la actualización a la versión que acabas de compilar
                     sh "kubectl set image deployment/${APP_NAME} ${APP_NAME}=${DOCKER_REGISTRY}/${DOCKER_CREDENTIALS_USR}/${APP_NAME}:${BUILD_NUMBER} -n ${K8S_NAMESPACE}"
+                    
                     sh "kubectl rollout status deployment/${APP_NAME} -n ${K8S_NAMESPACE} --timeout=120s"
                 }
-                echo "==> Despliegue completado en Kubernetes"
             }
         }
 
@@ -78,19 +82,21 @@ pipeline {
         // ────────────────────────────────────────────────────────
         stage('Smoke Test') {
             steps {
-                echo "==> Ejecutando prueba de humo post-despliegue"
-                withCredentials([file(credentialsId: 'kubeconfig-efefic', variable: 'KUBECONFIG')]) {
-                    sh '''
-                        GATEWAY_URL=$(kubectl get svc efefic-api-gateway \
-                            -n efefic \
-                            -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-                        curl -sf http://${GATEWAY_URL}/health | grep "healthy"
-                        echo "==> Smoke test exitoso"
-                    '''
+                echo "==> Ejecutando prueba de humo"
+                withCredentials([file(credentialsId: 'kubeconfig-efefic-u2', variable: 'KUBECONFIG')]) {
+                    sh """
+                        # Corregimos el nombre del servicio y el namespace
+                        GATEWAY_URL=\$(kubectl get svc ${APP_NAME} -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+                        
+                        echo "Esperando IP del LoadBalancer..."
+                        sleep 10
+                        
+                        echo "Probando: http://\$GATEWAY_URL/health"
+                        curl -sf http://\$GATEWAY_URL/health | grep "healthy"
+                    """
                 }
             }
         }
-    }
 
     post {
         success {
