@@ -28,7 +28,11 @@ SERVICES = {
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "efefic-fdvp20261-api-gateway", "version": "1.0.0"}
+    return {
+        "status": "healthy",
+        "service": "efefic-fdvp20261-api-gateway",
+        "version": "1.0.0",
+    }
 
 
 @app.get("/")
