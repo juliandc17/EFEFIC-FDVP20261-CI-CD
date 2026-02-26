@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: efefic-u2-api-gateway
-  labels:
-    app: efefic-u2-api-gateway
 spec:
   replicas: 1
   selector:
@@ -18,7 +16,7 @@ spec:
       - name: efefic-u2-api-gateway
         image: juliandc17/efefic-u2-api-gateway:latest
         ports:
-        - containerPort: 8080
+        - containerPort: 8080 # Puerto interno de la app
 ---
 apiVersion: v1
 kind: Service
@@ -30,5 +28,5 @@ spec:
     app: efefic-u2-api-gateway
   ports:
     - protocol: TCP
-      port: 80
-      targetPort: 8080
+      port: 80         # Puerto externo (Pruébalo así para evitar conflictos con Jenkins)
+      targetPort: 8080 # Puerto interno (El que usa tu app FastAPI/Python)
