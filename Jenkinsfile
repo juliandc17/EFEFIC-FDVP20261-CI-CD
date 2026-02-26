@@ -5,7 +5,7 @@ pipeline {
         // ── Configuración del proyecto (valores fijos, no son secretos) ──
         APP_NAME        = 'efefic-u2-api-gateway'
         DOCKER_REGISTRY = 'docker.io'
-        K8S_NAMESPACE   = 'EFEFIC-FDVP20261-U2'
+        K8S_NAMESPACE   = 'efefic-fdvp20261-u2'
 
         // ── Secretos — definidos en Jenkins Credentials Manager ──
         // Configurar en: Manage Jenkins > Credentials > Global
