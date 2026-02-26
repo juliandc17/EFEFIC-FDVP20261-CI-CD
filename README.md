@@ -1,6 +1,6 @@
-# 🚀 Broadcmo API Gateway
+# API Gateway
 
-API Gateway centralizado para los microservicios de la plataforma **Broadcmo**, construido con **FastAPI** y desplegado en contenedores Docker sobre un cluster **Kubernetes**.
+API Gateway centralizado para los microservicios de la plataforma **Broadcom**, construido con **FastAPI** y desplegado en contenedores Docker sobre un cluster **Kubernetes**.
 
 ---
 
