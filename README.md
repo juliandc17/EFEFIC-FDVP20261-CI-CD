@@ -149,3 +149,4 @@ pytest tests/ -v
 | **FastAPI** | Framework del API Gateway |
 | **pytest** | Testing unitario |
 | **Black/Flake8** | Calidad y estilo de código |
+# test trigger
