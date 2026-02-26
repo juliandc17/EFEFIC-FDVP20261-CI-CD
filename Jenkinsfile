@@ -82,40 +82,46 @@ pipeline {
         // STAGE 5: Verificación post-despliegue (Smoke Test)
         // ────────────────────────────────────────────────────────
         stage('Smoke Test') {
-    steps {
-        echo "==> Ejecutando prueba de humo en entorno local"
-        withCredentials([file(credentialsId: 'kubeconfig-efefic-u2', variable: 'KUBECONFIG')]) {
-            sh """
-                # Intentamos obtener la IP, si falla usamos localhost
-                GATEWAY_URL=\$(kubectl get svc ${APP_NAME} -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-                
-                if [ -z "\$GATEWAY_URL" ]; then
-                    echo "Info: No se detectó IP externa (Normal en Docker Desktop). Usando localhost."
-                    GATEWAY_URL="localhost"
-                fi
+            steps {
+                echo "==> Ejecutando prueba de humo en entorno local (Docker Desktop)"
+                withCredentials([file(credentialsId: 'kubeconfig-efefic-u2', variable: 'KUBECONFIG')]) {
+                    sh """
+                        # 1. Intentamos obtener la IP del LoadBalancer (en Docker Desktop suele ser localhost o vacio)
+                        GATEWAY_URL=\$(kubectl get svc ${APP_NAME} -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+                        
+                        # 2. Si está vacío (típico de local), usamos localhost
+                        if [ -z "\$GATEWAY_URL" ]; then
+                            echo "Info: Usando localhost para el test local."
+                            GATEWAY_URL="localhost"
+                        fi
 
-                echo "Probando conexión a: http://\$GATEWAY_URL/health"
-                
-                # Reintentos (Damos 15 segundos para que la app responda)
-                SUCCESS=0
-                for i in {1..3}; do
-                    if curl -sf http://\$GATEWAY_URL/health | grep "healthy"; then
-                        echo "==> Smoke test exitoso!"
-                        SUCCESS=1
-                        break
-                    fi
-                    echo "Intento \$i fallido, reintentando en 5s..."
-                    sleep 5
-                done
+                        echo "Probando conexión en: http://\$GATEWAY_URL/health"
+                        
+                        # 3. Reintentos: La app ya debería estar READY por el 'rollout status' anterior,
+                        # pero damos unos segundos por si acaso.
+                        SUCCESS=0
+                        for i in {1..5}; do
+                            # IMPORTANTE: Usamos puerto 80 porque es el 'port' definido en el Service
+                            if curl -sf http://\$GATEWAY_URL/health | grep "healthy"; then
+                                echo "--------------------------------------------------"
+                                echo "==> ¡SMOKE TEST EXITOSO!"
+                                echo "La API Gateway respondió correctamente."
+                                echo "--------------------------------------------------"
+                                SUCCESS=1
+                                break
+                            fi
+                            echo "Intento \$i: La app aún no responde en http://\$GATEWAY_URL/health, reintentando..."
+                            sleep 5
+                        done
 
-                if [ \$SUCCESS -eq 0 ]; then
-                    echo "ERROR: La aplicación no respondió 'healthy' en http://\$GATEWAY_URL/health"
-                    exit 1
-                fi
-            """
+                        if [ \$SUCCESS -eq 0 ]; then
+                            echo "ERROR: El Smoke Test falló tras varios intentos."
+                            exit 1
+                        fi
+                    """
+                }
+            }
         }
-    }
-}
     }
 
     post {
