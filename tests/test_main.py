@@ -10,7 +10,7 @@ def test_health_check():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
-    assert data["service"] == "broadcmo-api-gateway"
+    assert data["service"] == "efefic-fdvp20261-api-gateway"
 
 
 def test_root_endpoint():
