@@ -64,14 +64,15 @@ pipeline {
         // ────────────────────────────────────────────────────────
        stage('Deploy to Kubernetes') {
             steps {
-                echo "==> Aplicando configuración y actualizando imagen en ${K8S_NAMESPACE}"
+                echo "==> Verificando archivos en el workspace:"
+                sh "ls -la" // Esto nos dirá si el archivo está ahí realmente
+                
+                echo "==> Aplicando configuración en ${K8S_NAMESPACE}"
                 withCredentials([file(credentialsId: 'kubeconfig-efefic-u2', variable: 'KUBECONFIG')]) {
-                    // 1. Esto crea el Deployment y el Service si no existen
-                    sh "kubectl apply -f deployment.yaml -n ${K8S_NAMESPACE}"
+                    // Asegúrate de que el nombre del archivo abajo sea EXACTAMENTE el mismo que en tu repo
+                    sh "kubectl apply -f k8s/deployment.yaml -n ${K8S_NAMESPACE}"
                     
-                    // 2. Esto fuerza la actualización a la versión que acabas de compilar
                     sh "kubectl set image deployment/${APP_NAME} ${APP_NAME}=${DOCKER_REGISTRY}/${DOCKER_CREDENTIALS_USR}/${APP_NAME}:${BUILD_NUMBER} -n ${K8S_NAMESPACE}"
-                    
                     sh "kubectl rollout status deployment/${APP_NAME} -n ${K8S_NAMESPACE} --timeout=120s"
                 }
             }
