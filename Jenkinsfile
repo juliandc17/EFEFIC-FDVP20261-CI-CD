@@ -83,22 +83,22 @@ pipeline {
         // ────────────────────────────────────────────────────────
        stage('Smoke Test') {
             steps {
-                echo "==> Ejecutando prueba de humo en entorno local"
+                echo "==> Ejecutando prueba de humo interna"
                 withCredentials([file(credentialsId: 'kubeconfig-efefic-u2', variable: 'KUBECONFIG')]) {
                     sh """
-                        # En Docker Desktop, para llegar desde un contenedor (Jenkins) al host usamos esta URL
-                        GATEWAY_URL="host.docker.internal"
-
-                        echo "Probando conexión a: http://\$GATEWAY_URL/health"
+                        # Obtenemos la IP interna del servicio (ClusterIP)
+                        # Esto siempre funciona desde adentro del entorno de red de Docker
+                        SERVICE_IP=\$(kubectl get svc ${APP_NAME} -n ${K8S_NAMESPACE} -o jsonpath='{.spec.clusterIP}')
                         
-                        # Usamos un bucle compatible con sh estándar
+                        echo "Probando conexión interna a ClusterIP: http://\$SERVICE_IP/health"
+                        
                         SUCCESS=0
                         for i in 1 2 3 4 5; do
-                            echo "Intento \$i de 5..."
-                            # Si Jenkins no tiene curl, intenta con wget -qO-
-                            if curl -sf http://\$GATEWAY_URL/health | grep "healthy"; then
+                            echo "Intento \$i..."
+                            # Probamos al puerto 80 del servicio
+                            if curl -sf http://\$SERVICE_IP/health | grep "healthy"; then
                                 echo "--------------------------------------------------"
-                                echo "==> ¡SMOKE TEST EXITOSO EN host.docker.internal!"
+                                echo "==> ¡SMOKE TEST EXITOSO!"
                                 echo "--------------------------------------------------"
                                 SUCCESS=1
                                 break
@@ -107,8 +107,7 @@ pipeline {
                         done
 
                         if [ \$SUCCESS -eq 0 ]; then
-                            echo "ERROR: No se pudo conectar a la API."
-                            echo "Si host.docker.internal falla, intenta con la IP de tu PC."
+                            echo "ERROR: No se pudo conectar a la IP interna \$SERVICE_IP"
                             exit 1
                         fi
                     """
