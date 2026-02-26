@@ -3,18 +3,15 @@ pipeline {
 
     environment {
         // ── Configuración del proyecto (valores fijos, no son secretos) ──
-        APP_NAME        = 'efefic-api-gateway'
+        APP_NAME        = 'efefic-u2-api-gateway'
         DOCKER_REGISTRY = 'docker.io'
         K8S_NAMESPACE   = 'efefic'
 
         // ── Secretos — definidos en Jenkins Credentials Manager ──
-        // NUNCA escribir valores reales aquí
         // Configurar en: Manage Jenkins > Credentials > Global
-        //   ID: dockerhub-credentials  → Username/Password (DockerHub)
-        //   ID: dockerhub-user         → Secret text (tu username de DockerHub)
-        //   ID: kubeconfig-efefic      → Secret file (kubeconfig del cluster)
+        //   ID: dockerhub-credentials  → Username/Password (usuario y pass de DockerHub)
+        //   ID: kubeconfig-efefic      → Secret file (kubeconfig del cluster K8s)
         DOCKER_CREDENTIALS = credentials('dockerhub-credentials')
-        DOCKER_HUB_USER    = credentials('dockerhub-user')
         KUBECONFIG_FILE    = credentials('kubeconfig-efefic-u2')
     }
 
@@ -43,7 +40,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo "==> Construyendo imagen Docker para ${APP_NAME}:${BUILD_NUMBER}"
-                sh "docker build --tag ${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}:${BUILD_NUMBER} ."
+                sh "docker build --tag ${DOCKER_REGISTRY}/${DOCKER_CREDENTIALS_USR}/${APP_NAME}:${BUILD_NUMBER} ."
                 echo "==> Imagen construida correctamente"
             }
         }
@@ -54,10 +51,10 @@ pipeline {
         stage('Push to DockerHub') {
             steps {
                 echo "==> Publicando imagen en DockerHub"
-                sh "echo ${DOCKER_CREDENTIALS_PSW} | docker login ${DOCKER_REGISTRY} -u ${DOCKER_CREDENTIALS_USR} --password-stdin"
-                sh "docker push ${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}:${BUILD_NUMBER}"
-                sh "docker tag ${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}:${BUILD_NUMBER} ${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}:latest"
-                sh "docker push ${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}:latest"
+                sh 'echo $DOCKER_CREDENTIALS_PSW | docker login docker.io -u $DOCKER_CREDENTIALS_USR --password-stdin'
+                sh "docker push ${DOCKER_REGISTRY}/${DOCKER_CREDENTIALS_USR}/${APP_NAME}:${BUILD_NUMBER}"
+                sh "docker tag ${DOCKER_REGISTRY}/${DOCKER_CREDENTIALS_USR}/${APP_NAME}:${BUILD_NUMBER} ${DOCKER_REGISTRY}/${DOCKER_CREDENTIALS_USR}/${APP_NAME}:latest"
+                sh "docker push ${DOCKER_REGISTRY}/${DOCKER_CREDENTIALS_USR}/${APP_NAME}:latest"
                 echo "==> Imagen publicada correctamente"
             }
         }
@@ -69,7 +66,7 @@ pipeline {
             steps {
                 echo "==> Desplegando en cluster Kubernetes (namespace: ${K8S_NAMESPACE})"
                 withCredentials([file(credentialsId: 'kubeconfig-efefic', variable: 'KUBECONFIG')]) {
-                    sh "kubectl set image deployment/${APP_NAME} ${APP_NAME}=${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}:${BUILD_NUMBER} -n ${K8S_NAMESPACE}"
+                    sh "kubectl set image deployment/${APP_NAME} ${APP_NAME}=${DOCKER_REGISTRY}/${DOCKER_CREDENTIALS_USR}/${APP_NAME}:${BUILD_NUMBER} -n ${K8S_NAMESPACE}"
                     sh "kubectl rollout status deployment/${APP_NAME} -n ${K8S_NAMESPACE} --timeout=120s"
                 }
                 echo "==> Despliegue completado en Kubernetes"
@@ -83,7 +80,13 @@ pipeline {
             steps {
                 echo "==> Ejecutando prueba de humo post-despliegue"
                 withCredentials([file(credentialsId: 'kubeconfig-efefic', variable: 'KUBECONFIG')]) {
-                    sh 'GATEWAY_URL=$(kubectl get svc efefic-api-gateway -n efefic -o jsonpath=\'{.status.loadBalancer.ingress[0].ip}\') && curl -sf http://${GATEWAY_URL}/health | grep "healthy" && echo "==> Smoke test exitoso"'
+                    sh '''
+                        GATEWAY_URL=$(kubectl get svc efefic-api-gateway \
+                            -n efefic \
+                            -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+                        curl -sf http://${GATEWAY_URL}/health | grep "healthy"
+                        echo "==> Smoke test exitoso"
+                    '''
                 }
             }
         }
@@ -97,8 +100,8 @@ pipeline {
             echo "==> Pipeline CD fallo en Build #${BUILD_NUMBER} - revisar logs"
         }
         always {
-            sh "docker rmi ${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}:${BUILD_NUMBER} || true"
-            sh "docker rmi ${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}:latest || true"
+            sh "docker rmi ${DOCKER_REGISTRY}/${DOCKER_CREDENTIALS_USR}/${APP_NAME}:${BUILD_NUMBER} || true"
+            sh "docker rmi ${DOCKER_REGISTRY}/${DOCKER_CREDENTIALS_USR}/${APP_NAME}:latest || true"
         }
     }
 }
