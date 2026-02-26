@@ -81,41 +81,34 @@ pipeline {
         // ────────────────────────────────────────────────────────
         // STAGE 5: Verificación post-despliegue (Smoke Test)
         // ────────────────────────────────────────────────────────
-        stage('Smoke Test') {
+       stage('Smoke Test') {
             steps {
-                echo "==> Ejecutando prueba de humo en entorno local (Docker Desktop)"
+                echo "==> Ejecutando prueba de humo en entorno local"
                 withCredentials([file(credentialsId: 'kubeconfig-efefic-u2', variable: 'KUBECONFIG')]) {
                     sh """
-                        # 1. Intentamos obtener la IP del LoadBalancer (en Docker Desktop suele ser localhost o vacio)
-                        GATEWAY_URL=\$(kubectl get svc ${APP_NAME} -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-                        
-                        # 2. Si está vacío (típico de local), usamos localhost
-                        if [ -z "\$GATEWAY_URL" ]; then
-                            echo "Info: Usando localhost para el test local."
-                            GATEWAY_URL="localhost"
-                        fi
+                        # En Docker Desktop, para llegar desde un contenedor (Jenkins) al host usamos esta URL
+                        GATEWAY_URL="host.docker.internal"
 
-                        echo "Probando conexión en: http://\$GATEWAY_URL/health"
+                        echo "Probando conexión a: http://\$GATEWAY_URL/health"
                         
-                        # 3. Reintentos: La app ya debería estar READY por el 'rollout status' anterior,
-                        # pero damos unos segundos por si acaso.
+                        # Usamos un bucle compatible con sh estándar
                         SUCCESS=0
-                        for i in {1..5}; do
-                            # IMPORTANTE: Usamos puerto 80 porque es el 'port' definido en el Service
+                        for i in 1 2 3 4 5; do
+                            echo "Intento \$i de 5..."
+                            # Si Jenkins no tiene curl, intenta con wget -qO-
                             if curl -sf http://\$GATEWAY_URL/health | grep "healthy"; then
                                 echo "--------------------------------------------------"
-                                echo "==> ¡SMOKE TEST EXITOSO!"
-                                echo "La API Gateway respondió correctamente."
+                                echo "==> ¡SMOKE TEST EXITOSO EN host.docker.internal!"
                                 echo "--------------------------------------------------"
                                 SUCCESS=1
                                 break
                             fi
-                            echo "Intento \$i: La app aún no responde en http://\$GATEWAY_URL/health, reintentando..."
                             sleep 5
                         done
 
                         if [ \$SUCCESS -eq 0 ]; then
-                            echo "ERROR: El Smoke Test falló tras varios intentos."
+                            echo "ERROR: No se pudo conectar a la API."
+                            echo "Si host.docker.internal falla, intenta con la IP de tu PC."
                             exit 1
                         fi
                     """
