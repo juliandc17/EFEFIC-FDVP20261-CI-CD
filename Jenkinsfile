@@ -3,14 +3,21 @@ pipeline {
 
     environment {
         // ── Configuración del proyecto ──────────────────────────
-        APP_NAME        = 'broadcmo-api-gateway'
+        // Estos valores son fijos y no son secretos — van en el repo
+        APP_NAME        = 'efefic-u2-api-gateway'
         DOCKER_REGISTRY = 'docker.io'
-        DOCKER_IMAGE    = "${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}"
-        K8S_NAMESPACE   = 'broadcmo'
+        K8S_NAMESPACE   = 'efefic-u2'
 
-        // ── Credenciales (configuradas en Jenkins Credentials) ──
+        // ── Secretos — definidos en Jenkins Credentials Manager ──
+        // NUNCA escribir valores reales aquí
+        // Configurar en: Manage Jenkins > Credentials > Global
+        //   ID: dockerhub-credentials  → Username/Password (DockerHub)
+        //   ID: dockerhub-user         → Secret text (tu username de DockerHub)
+        //   ID: kubeconfig-efefic      → Secret file (kubeconfig del cluster)
         DOCKER_CREDENTIALS = credentials('dockerhub-credentials')
-        KUBECONFIG_FILE    = credentials('kubeconfig-broadcmo')
+        DOCKER_HUB_USER    = credentials('dockerhub-user')
+        DOCKER_IMAGE       = "${DOCKER_REGISTRY}/${DOCKER_HUB_USER}/${APP_NAME}"
+        KUBECONFIG_FILE    = credentials('kubeconfig-efefic-u2')
     }
 
     options {
@@ -75,9 +82,7 @@ pipeline {
         stage('🚀 Deploy to Kubernetes') {
             steps {
                 echo "==> Desplegando en cluster Kubernetes (namespace: ${K8S_NAMESPACE})"
-                withCredentials([file(credentialsId: 'kubeconfig-broadcmo', variable: 'KUBECONFIG')]) {
-                    sh """
-                        kubectl set image deployment/${APP_NAME} \
+                withCredentials([file(credentialsId: 'kubeconfig-efefic', variable: 'KUBECONFIG')]) {
                             ${APP_NAME}=${DOCKER_IMAGE}:${BUILD_NUMBER} \
                             -n ${K8S_NAMESPACE}
 
@@ -96,7 +101,7 @@ pipeline {
         stage('🔎 Smoke Test') {
             steps {
                 echo "==> Ejecutando prueba de humo post-despliegue"
-                withCredentials([file(credentialsId: 'kubeconfig-broadcmo', variable: 'KUBECONFIG')]) {
+                withCredentials([file(credentialsId: 'kubeconfig-efefic', variable: 'KUBECONFIG')]) {
                     sh """
                         GATEWAY_URL=\$(kubectl get svc ${APP_NAME} \
                             -n ${K8S_NAMESPACE} \
