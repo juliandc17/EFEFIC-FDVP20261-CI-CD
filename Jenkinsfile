@@ -15,7 +15,7 @@ pipeline {
         //   ID: kubeconfig-efefic      → Secret file (kubeconfig del cluster)
         DOCKER_CREDENTIALS = credentials('dockerhub-credentials')
         DOCKER_HUB_USER    = credentials('dockerhub-user')
-        KUBECONFIG_FILE    = credentials('kubeconfig-efefic')
+        KUBECONFIG_FILE    = credentials('kubeconfig-efefic-u2')
     }
 
     options {
