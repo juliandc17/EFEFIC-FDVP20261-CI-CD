@@ -1,10 +1,23 @@
-# API Gateway
 
-API Gateway centralizado para los microservicios de la plataforma **Broadcom**, construido con **FastAPI** y desplegado en contenedores Docker sobre un cluster **Kubernetes**.
+# EFEFIC-FDVP20261: API Gateway CI/CD 
 
----
+Este repositorio contiene la implementación de un **API Gateway** robusto desarrollado con **FastAPI**, diseñado para centralizar la comunicación de microservicios y gestionado bajo un ciclo de vida **DevOps** automatizado.
 
-## 📐 Arquitectura CI/CD
+## Arquitectura del Ecosistema
+El proyecto integra un flujo completo de CI/CD para garantizar la calidad y disponibilidad del software:
+
+## Arquitectura CI/CD
+
+1. **Integración Continua (CI):** Ejecutada en **GitHub Actions**. Realiza pruebas unitarias automáticas con `pytest` ante cada `push`.
+2. **Entrega Continua (CD):** Orquestada por **Jenkins**. Se encarga del empaquetado Docker y el despliegue en un clúster de **Kubernetes**.
+3. **Validación (Smoke Test):** Jenkins realiza una verificación de salud dinámica post-despliegue para confirmar la operatividad del servicio.
+
+## Tecnologías Principales
+- **Backend:** FastAPI (Python 3.11)
+- **CI Server:** GitHub Actions
+- **CD Server:** Jenkins (Pipeline as Code)
+- **Containerization:** Docker & Docker Hub
+- **Orchestration:** Kubernetes (Docker Desktop)
 
 ```
 Developer → Push/PR → GitHub
@@ -35,7 +48,7 @@ Developer → Push/PR → GitHub
 
 ---
 
-## 🗂️ Estructura del Proyecto
+## Estructura del Proyecto
 
 ```
 EFEFIC-FDVP20261-CI-CD/
@@ -54,7 +67,7 @@ EFEFIC-FDVP20261-CI-CD/
 
 ---
 
-## ⚙️ Pipeline CI — GitHub Actions
+## Pipeline CI — GitHub Actions
 
 **Archivo:** `.github/workflows/ci.yml`
 
@@ -62,9 +75,9 @@ Se activa automáticamente con cada **push** o **pull request** a las ramas `mai
 
 | Stage | Descripción | Herramienta |
 |---|---|---|
-| 🔍 Lint | Análisis estático y formato de código | Black, Flake8, isort |
-| 🧪 Tests | Ejecución de pruebas unitarias | pytest |
-| 🐳 Docker Build | Validación de construcción de imagen | Docker Buildx |
+| Lint | Análisis estático y formato de código | Black, Flake8, isort |
+| Tests | Ejecución de pruebas unitarias | pytest |
+| Docker Build | Validación de construcción de imagen | Docker Buildx |
 
 ---
 
@@ -76,11 +89,11 @@ Se activa manualmente o mediante webhook al mergear en `main`.
 
 | Stage | Descripción |
 |---|---|
-| 📥 Checkout | Clona el repositorio desde GitHub |
-| 🐳 Build | Construye la imagen Docker con tag `BUILD_NUMBER` y `latest` |
-| 📤 Push | Publica la imagen en DockerHub |
-| 🚀 Deploy | Actualiza el Deployment en Kubernetes con `kubectl set image` |
-| 🔎 Smoke Test | Verifica el endpoint `/health` post-despliegue |
+| Checkout | Clona el repositorio desde GitHub |
+| Build | Construye la imagen Docker con tag `BUILD_NUMBER` y `latest` |
+| Push | Publica la imagen en DockerHub |
+| Deploy | Actualiza el Deployment en Kubernetes con `kubectl set image` |
+| Smoke Test | Verifica el endpoint `/health` post-despliegue |
 
 ### Credenciales requeridas en Jenkins
 
@@ -91,32 +104,7 @@ Se activa manualmente o mediante webhook al mergear en `main`.
 
 ---
 
-## 🐳 Docker
 
-### Build local
-
-```bash
-docker build -t broadcmo-api-gateway:local .
-```
-
-### Run local
-
-```bash
-docker run -p 8000:8000 \
-  -e AUTH_SERVICE_URL=http://localhost:8001 \
-  broadcmo-api-gateway:local
-```
-
----
-
-## 🧪 Pruebas locales
-
-```bash
-pip install -r requirements.txt
-pytest tests/ -v
-```
-
----
 
 ## 🌐 Endpoints del Gateway
 
@@ -150,3 +138,18 @@ pytest tests/ -v
 | **pytest** | Testing unitario |
 | **Black/Flake8** | Calidad y estilo de código |
 # test trigger
+
+
+## 📸 Evidencias de Despliegue
+
+### 1. Integración Continua (GitHub Actions)
+Muestra la validación automática del código y los tests pasando en la nube.
+![CI Pipeline](images/Evidencia-u2%20lab%20CI.png)
+
+### 2. Orquestación y Despliegue (Kubernetes)
+Evidencia de los Pods y Servicios (Auth, Users, Broadcast) corriendo correctamente.
+![K8s Resources](images/Evidencia-u2%20lab%20k8s.png)
+
+### 3. Entrega Continua (Jenkins)
+Vista del Stage View con todas las etapas en verde, incluyendo el Smoke Test.
+![Jenkins CD](images/Evidencia-u2%20lab%20CD.png)

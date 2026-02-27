@@ -1,0 +1,147 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: services-mock-config
+  namespace: efefic-fdvp20261-u2
+data:
+  auth.conf: |
+    server {
+        listen 80;
+        location / {
+            default_type application/json;
+            return 200 '{"service": "Auth", "status": "online", "port": 8001}';
+        }
+    }
+  users.conf: |
+    server {
+        listen 80;
+        location / {
+            default_type application/json;
+            return 200 '{"service": "Users", "status": "online", "port": 8002}';
+        }
+    }
+  broadcast.conf: |
+    server {
+        listen 80;
+        location / {
+            default_type application/json;
+            return 200 '{"service": "Broadcast", "status": "online", "port": 8003}';
+        }
+    }
+---
+# --- SERVICIO AUTH ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: efefic-fdvp20261-u2
+spec:
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: auth.conf
+      volumes: 
+      - name: config-volume
+        configMap:
+          name: services-mock-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: efefic-fdvp20261-u2
+spec:
+  selector:
+    app: auth-service
+  ports:
+  - port: 8001
+    targetPort: 80
+---
+# --- SERVICIO USERS ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-service
+  namespace: efefic-fdvp20261-u2
+spec:
+  selector:
+    matchLabels:
+      app: users-service
+  template:
+    metadata:
+      labels:
+        app: users-service
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: users.conf
+      volumes:
+      - name: config-volume
+        configMap:
+          name: services-mock-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: users-service
+  namespace: efefic-fdvp20261-u2
+spec:
+  selector:
+    app: users-service
+  ports:
+  - port: 8002
+    targetPort: 80
+---
+# --- SERVICIO BROADCAST ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broadcast-service
+  namespace: efefic-fdvp20261-u2
+spec:
+  selector:
+    matchLabels:
+      app: broadcast-service
+  template:
+    metadata:
+      labels:
+        app: broadcast-service
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: broadcast.conf
+      volumes:
+      - name: config-volume
+        configMap:
+          name: services-mock-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: broadcast-service
+  namespace: efefic-fdvp20261-u2
+spec:
+  selector:
+    app: broadcast-service
+  ports:
+  - port: 8003
+    targetPort: 80
