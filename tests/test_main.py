@@ -18,7 +18,7 @@ def test_root_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert "message" in data
-    assert "Broadcmo" in data["message"]
+    assert "EFEFIC" in data["message"]
 
 
 def test_unknown_service_returns_404():
