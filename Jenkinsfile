@@ -90,13 +90,13 @@ pipeline {
                         # Esto siempre funciona desde adentro del entorno de red de Docker
                         SERVICE_IP=\$(kubectl get svc ${APP_NAME} -n ${K8S_NAMESPACE} -o jsonpath='{.spec.clusterIP}')
                         
-                        echo "Probando conexión interna a ClusterIP: http://\$SERVICE_IP/health"
+                        echo "Probando conexión interna a ClusterIP: http://\$SERVICE_IP:8081/health"
                         
                         SUCCESS=0
                         for i in 1 2 3 4 5; do
                             echo "Intento \$i..."
                             # Probamos al puerto 80 del servicio
-                            if curl -sf http://\$SERVICE_IP/health | grep "healthy"; then
+                            if curl -sf http://\$SERVICE_IP:8081/health | grep "healthy"; then
                                 echo "--------------------------------------------------"
                                 echo "==> ¡SMOKE TEST EXITOSO!"
                                 echo "--------------------------------------------------"
