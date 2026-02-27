@@ -1,7 +1,7 @@
 
 # EFEFIC-FDVP20261: API Gateway CI/CD 
 
-Este repositorio contiene la implementación de un **API Gateway** robusto desarrollado con **FastAPI**, diseñado para centralizar la comunicación de microservicios y gestionado bajo un ciclo de vida **DevOps** automatizado.
+Este repositorio contiene la implementación de un **API Gateway** desarrollado con **FastAPI**, diseñado para centralizar la comunicación de microservicios y gestionado bajo un ciclo de vida **DevOps** automatizado.
 
 ## Arquitectura del Ecosistema
 El proyecto integra un flujo completo de CI/CD para garantizar la calidad y disponibilidad del software:
@@ -39,11 +39,11 @@ Developer → Push/PR → GitHub
               │  5. Smoke Test      │
               └──────────┬──────────┘
                          │
-              ┌──────────▼──────────┐
-              │  Kubernetes Cluster │
-              │  Namespace:broadcmo │
-              │  Deployment + SVC   │
-              └─────────────────────┘
+              ┌──────────▼──────────────┐
+              │  Kubernetes Cluster     │
+              │  NS:efefic-fdvp20261-u2 │
+              │  Deployment + SVC       │
+              └─────────────────────────┘
 ```
 
 ---
@@ -52,17 +52,25 @@ Developer → Push/PR → GitHub
 
 ```
 EFEFIC-FDVP20261-CI-CD/
-├── .github/
-│   └── workflows/
-│       └── ci.yml              # Pipeline CI - GitHub Actions
-├── app/
-│   └── main.py                 # Aplicación FastAPI
-├── tests/
-│   └── test_main.py            # Pruebas unitarias
-├── Dockerfile                  # Imagen del contenedor
-├── Jenkinsfile                 # Pipeline CD - Jenkins
-├── requirements.txt            # Dependencias Python
-└── README.md
+  .github/
+    workflows/
+      ci.yml                # Pipeline CI — GitHub Actions 
+  app/
+    __init__.py
+    main.py                 # FastAPI — API Gateway proxy a microservicios
+  tests/
+    __init__.py
+    test_main.py            # 4 pruebas unitarias con pytest
+  k8s/
+    deployment.yaml         # Deployment + Service LoadBalancer puerto 8081
+    microservices-mock.yaml # Mocks auth, users, broadcast
+  conftest.py               # Configuracion de path para pytest
+  Dockerfile                # Imagen multistage Python 3.11-slim
+  Jenkinsfile               # Pipeline CD con 5 stages declarativos
+  requirements.txt          # Dependencias Python del proyecto
+  README.md                 # Documentacion con evidencias y screenshots
+
+
 ```
 
 ---
@@ -81,7 +89,7 @@ Se activa automáticamente con cada **push** o **pull request** a las ramas `mai
 
 ---
 
-## 🔧 Pipeline CD — Jenkins
+## Pipeline CD — Jenkins
 
 **Archivo:** `Jenkinsfile`
 
@@ -100,7 +108,7 @@ Se activa manualmente o mediante webhook al mergear en `main`.
 | ID | Tipo | Descripción |
 |---|---|---|
 | `dockerhub-credentials` | Username/Password | Cuenta DockerHub |
-| `kubeconfig-broadcmo` | Secret File | kubeconfig del cluster K8s |
+| `kubeconfig-efefic-u2` | Secret File | kubeconfig del cluster K8s |
 
 ---
 
@@ -140,7 +148,7 @@ Se activa manualmente o mediante webhook al mergear en `main`.
 # test trigger
 
 
-## 📸 Evidencias de Despliegue
+## Evidencias de Despliegue
 
 ### 1. Integración Continua (GitHub Actions)
 Muestra la validación automática del código y los tests pasando en la nube.
